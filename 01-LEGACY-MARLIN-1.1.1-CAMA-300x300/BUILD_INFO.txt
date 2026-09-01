@@ -1,0 +1,8 @@
+Firmware: SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+Variant: Moebyus Sirius 300x300 CUSTOM
+Physical bed: 300x300 mm
+Logical limits: X=-48..295, Y=-12..295, Z=0..275
+Board: RUMBA / ATmega2560
+Drivers: TMC2209 standalone STEP/DIR (Vref physical)
+Source base: Moebyus/Firmwares SIRIUS11-Rumba-MK8-XYGT2-ZHusillo-lcdFull
+SHA256: 7c187dbc2ba30ed082ce1a2696c53d834b41c92af2bacf8660dad7872b0abc6a

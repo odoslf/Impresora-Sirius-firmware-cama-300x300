@@ -1,0 +1,12 @@
+SIRIUS 300x300 IDEX - MIGRACION MODERNA
+Marlin base: 2.1.2.8 estable
+Placa: RUMBA / ATmega2560
+Cama física: 300x300 mm
+Área lógica: 295x295x275 mm
+IDEX: X1 MIN / X2 MAX / Auto Park
+Duplicación: M605 S2 / offset 150 mm
+Espejo: M605 S3 disponible
+Drivers: TMC2209_STANDALONE X/X2/Y/Z/E0/E1
+UART: NO; Vref: ajuste físico
+Protección térmica hotends y cama: activa
+No flashear sin validar M119 y recorridos físicos
