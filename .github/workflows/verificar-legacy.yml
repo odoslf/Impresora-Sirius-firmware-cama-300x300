@@ -1,0 +1,71 @@
+name: Verificar LEGACY Sirius Marlin 1.1.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '01-LEGACY-MARLIN-1.1.1-CAMA-300x300/**'
+      - '.github/workflows/verificar-legacy.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar configuración crítica legacy
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT='01-LEGACY-MARLIN-1.1.1-CAMA-300x300'
+          C="$ROOT/Marlin/Configuration.h"
+          A="$ROOT/Marlin/Configuration_adv.h"
+          grep -q 'SIRIUS 300x300 CUSTOM' "$C"
+          grep -q 'BOARD_RUMBA' "$C"
+          grep -q '^#define EXTRUDERS 2' "$C"
+          grep -q '^#define X_MIN_POS  -48' "$C"
+          grep -q '^#define Y_MIN_POS  -12' "$C"
+          grep -q '^#define Z_MIN_POS  0' "$C"
+          grep -q '^#define X_MAX_POS  295' "$C"
+          grep -q '^#define Y_MAX_POS  295' "$C"
+          grep -q '^#define Z_MAX_POS  275' "$C"
+          grep -q '^#define TEMP_SENSOR_0 5' "$C"
+          grep -q '^#define TEMP_SENSOR_1 5' "$C"
+          grep -q '^#define TEMP_SENSOR_BED 1' "$C"
+          grep -q '^#define THERMAL_PROTECTION_HOTENDS' "$C"
+          grep -q '^#define THERMAL_PROTECTION_BED' "$C"
+          grep -q '^#define DUAL_X_CARRIAGE' "$A"
+          grep -q 'X2_MIN_POS 25' "$A"
+          grep -q 'X2_MAX_POS 359' "$A"
+          grep -q 'X2_HOME_DIR 1' "$A"
+          grep -q 'DEFAULT_DUAL_X_CARRIAGE_MODE DXC_AUTO_PARK_MODE' "$A"
+          grep -q 'MICROSTEP_MODES {16,16,16,16,16}' "$A"
+
+      - uses: arduino/setup-arduino-cli@v2
+
+      - name: Instalar AVR y U8glib
+        shell: bash
+        run: |
+          set -euxo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+          arduino-cli lib install U8glib
+
+      - name: Compilar para RUMBA / ATmega2560
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT='01-LEGACY-MARLIN-1.1.1-CAMA-300x300'
+          mkdir -p /tmp/sirius-legacy-build
+          arduino-cli compile --fqbn arduino:avr:mega:cpu=atmega2560 --output-dir /tmp/sirius-legacy-build "$ROOT/Marlin"
+          HEX=$(find /tmp/sirius-legacy-build -maxdepth 1 -type f -name '*.hex' ! -name '*with_bootloader*' | head -n1)
+          test -s "$HEX"
+          cp "$HEX" /tmp/SIRIUS-LEGACY-Marlin-1.1.1-300x300.hex
+          sha256sum /tmp/SIRIUS-LEGACY-Marlin-1.1.1-300x300.hex
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SIRIUS-LEGACY-Marlin-1.1.1-300x300
+          path: /tmp/SIRIUS-LEGACY-Marlin-1.1.1-300x300.hex
