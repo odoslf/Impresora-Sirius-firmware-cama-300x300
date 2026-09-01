@@ -1,0 +1,103 @@
+name: Verificar MODERNO Sirius Marlin 2.1.2.8
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/**'
+      - '.github/workflows/verificar-moderno.yml'
+      - '.github/scripts/run_sirius_migration.py'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar identidad y configuración crítica
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300'
+          C="$ROOT/Marlin-2.1.2.8/Marlin/Configuration.h"
+          A="$ROOT/Marlin-2.1.2.8/Marlin/Configuration_adv.h"
+          grep -q 'VARIANTE PERSONALIZADA: MOEBYUS SIRIUS CAMA 300x300 / IDEX' "$C"
+          grep -q '^#define MOTHERBOARD BOARD_RUMBA' "$C"
+          grep -q '^#define SERIAL_PORT 0' "$C"
+          grep -q '^#define BAUDRATE 115200' "$C"
+          grep -q '^#define EXTRUDERS 2' "$C"
+          for D in X Y Z X2 E0 E1; do grep -q "^#define ${D}_DRIVER_TYPE TMC2209_STANDALONE" "$C"; done
+          grep -q '^#define X_BED_SIZE 295' "$C"
+          grep -q '^#define Y_BED_SIZE 295' "$C"
+          grep -q '^#define X_MIN_POS -48' "$C"
+          grep -q '^#define Y_MIN_POS -12' "$C"
+          grep -q '^#define Z_MIN_POS 0' "$C"
+          grep -q '^#define X_MAX_POS 295' "$C"
+          grep -q '^#define Y_MAX_POS 295' "$C"
+          grep -q '^#define Z_MAX_POS 275' "$C"
+          grep -q '^#define TEMP_SENSOR_0 5' "$C"
+          grep -q '^#define TEMP_SENSOR_1 5' "$C"
+          grep -q '^#define TEMP_SENSOR_BED 1' "$C"
+          grep -q '^#define THERMAL_PROTECTION_HOTENDS' "$C"
+          grep -q '^#define THERMAL_PROTECTION_BED' "$C"
+          grep -q '^#define REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER' "$C"
+          grep -q '^#define DUAL_X_CARRIAGE' "$A"
+          grep -q '^#define X2_MIN_POS 25' "$A"
+          grep -q '^#define X2_MAX_POS 359' "$A"
+          grep -q '^#define X2_HOME_POS X2_MAX_POS' "$A"
+          grep -q '^#define DEFAULT_DUAL_X_CARRIAGE_MODE DXC_AUTO_PARK_MODE' "$A"
+          grep -q '^#define DEFAULT_DUPLICATION_X_OFFSET 150' "$A"
+
+      - name: Verificar mapa de pines RUMBA crítico
+        shell: bash
+        run: |
+          set -euxo pipefail
+          P='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8/Marlin/src/pins/ramps/pins_RUMBA.h'
+          check_pin() { grep -Eq "^[[:space:]]*#define[[:space:]]+$1[[:space:]]+$2([[:space:]]|$)" "$P"; }
+          check_pin X_STEP_PIN 17
+          check_pin X_DIR_PIN 16
+          check_pin X_ENABLE_PIN 48
+          check_pin Y_STEP_PIN 54
+          check_pin Y_DIR_PIN 47
+          check_pin Y_ENABLE_PIN 55
+          check_pin Z_STEP_PIN 57
+          check_pin Z_DIR_PIN 56
+          check_pin Z_ENABLE_PIN 62
+          check_pin E0_STEP_PIN 23
+          check_pin E0_DIR_PIN 22
+          check_pin E0_ENABLE_PIN 24
+          check_pin E1_STEP_PIN 26
+          check_pin E1_DIR_PIN 25
+          check_pin E1_ENABLE_PIN 27
+          check_pin E2_STEP_PIN 29
+          check_pin E2_DIR_PIN 28
+          check_pin E2_ENABLE_PIN 39
+          check_pin HEATER_0_PIN 2
+          check_pin HEATER_1_PIN 3
+          check_pin HEATER_BED_PIN 9
+          check_pin X_MIN_PIN 37
+          check_pin X_MAX_PIN 36
+          check_pin Y_MIN_PIN 35
+          check_pin Z_MIN_PIN 33
+
+      - name: Instalar PlatformIO
+        run: python3 -m pip install platformio
+
+      - name: Compilar Marlin 2.1.2.8 para RUMBA / ATmega2560
+        working-directory: 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8
+        run: platformio run -e mega2560
+
+      - name: Recoger HEX y checksum
+        shell: bash
+        run: |
+          set -euxo pipefail
+          SRC='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8/.pio/build/mega2560/firmware.hex'
+          test -s "$SRC"
+          cp "$SRC" /tmp/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-standalone.hex
+          sha256sum /tmp/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-standalone.hex
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SIRIUS-MODERNO-Marlin-2.1.2.8-300x300
+          path: /tmp/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-standalone.hex
