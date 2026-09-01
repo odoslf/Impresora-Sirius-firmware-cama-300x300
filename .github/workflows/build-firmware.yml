@@ -1,0 +1,101 @@
+name: Build Sirius 300x300 firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/build-firmware.yml'
+      - 'patches/**'
+      - 'Marlin/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Import official Moebyus source if missing
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [ ! -d Marlin ]; then
+            git clone --depth 1 https://github.com/Moebyus/Firmwares.git /tmp/moebyus
+            cp -a /tmp/moebyus/SIRIUS11/SIRIUS11-Rumba-MK8-XYGT2-ZHusillo-lcdFull/Marlin ./Marlin
+            cp /tmp/moebyus/SIRIUS11/SIRIUS11-Rumba-MK8-XYGT2-ZHusillo-lcdFull/CambiosPlantillaFirmware.txt ./CambiosPlantillaFirmware-original.txt
+          fi
+
+      - name: Apply Sirius 300x300 limits
+        shell: bash
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('Marlin/Configuration.h')
+          s=p.read_text()
+          replacements={
+            '#define X_MIN_POS  -48':'#define X_MIN_POS  -48',
+            '#define Y_MIN_POS  -12':'#define Y_MIN_POS  -12',
+            '#define Z_MIN_POS  0':'#define Z_MIN_POS  0',
+            '#define X_MAX_POS  295':'#define X_MAX_POS  295',
+            '#define Y_MAX_POS  205':'#define Y_MAX_POS  295',
+            '#define Z_MAX_POS  275':'#define Z_MAX_POS  275',
+          }
+          for old,new in replacements.items():
+              if old not in s and new not in s:
+                  raise SystemExit(f'No se encontró parámetro esperado: {old}')
+              s=s.replace(old,new)
+          p.write_text(s)
+          PY
+
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+
+      - name: Install AVR core and U8glib
+        shell: bash
+        run: |
+          set -euxo pipefail
+          arduino-cli config init --overwrite
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+          arduino-cli lib install U8glib
+
+      - name: Compile for RUMBA / ATmega2560
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p build
+          arduino-cli compile --fqbn arduino:avr:mega:cpu=atmega2560 --output-dir build Marlin
+          HEX=$(find build -maxdepth 1 -type f -name '*.hex' ! -name '*with_bootloader*' | head -n1)
+          test -n "$HEX"
+          cp "$HEX" SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+
+      - name: Verify configured limits
+        shell: bash
+        run: |
+          grep -E '^#define (X|Y|Z)_(MIN|MAX)_POS' Marlin/Configuration.h
+          grep -q '^#define X_MAX_POS  295' Marlin/Configuration.h
+          grep -q '^#define Y_MAX_POS  295' Marlin/Configuration.h
+          grep -q '^#define Z_MAX_POS  275' Marlin/Configuration.h
+
+      - name: Upload HEX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sirius-300x300-HEX
+          path: SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+
+      - name: Commit imported source and compiled HEX
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Marlin CambiosPlantillaFirmware-original.txt SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+          if ! git diff --cached --quiet; then
+            git commit -m 'Importa y compila firmware Sirius 300x300 295x295x275'
+            git push
+          fi
