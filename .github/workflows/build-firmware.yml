@@ -1,4 +1,4 @@
-name: Build Sirius 300x300 firmware
+name: Build Sirius 300x300 custom firmware
 
 on:
   workflow_dispatch:
@@ -8,6 +8,9 @@ on:
       - '.github/workflows/build-firmware.yml'
       - 'patches/**'
       - 'Marlin/**'
+      - 'README.md'
+      - 'VARIANTE-SIRIUS-300x300.md'
+      - 'CHANGELOG.md'
 
 permissions:
   contents: write
@@ -29,15 +32,37 @@ jobs:
             cp /tmp/moebyus/SIRIUS11/SIRIUS11-Rumba-MK8-XYGT2-ZHusillo-lcdFull/CambiosPlantillaFirmware.txt ./CambiosPlantillaFirmware-original.txt
           fi
 
-      - name: Apply Sirius 300x300 limits
+      - name: Apply Sirius 300x300 custom identity and geometry
         shell: bash
         run: |
           set -euxo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('Marlin/Configuration.h')
-          s=p.read_text()
-          replacements={
+          p = Path('Marlin/Configuration.h')
+          s = p.read_text()
+
+          marker = '''/**
+           * =====================================================================
+           * CUSTOM VARIANT: MOEBYUS SIRIUS 300x300
+           * Repository: odoslf/Impresora-Sirius-firmware-cama-300x300
+           * Physical bed: 300x300 mm
+           * Configured logical area: 295x295x275 mm
+           * Based on Moebyus SIRIUS11 public firmware, NOT factory-original code.
+           * =====================================================================
+           */
+          '''
+          if 'CUSTOM VARIANT: MOEBYUS SIRIUS 300x300' not in s:
+              insert_at = s.find('#ifndef CONFIGURATION_H')
+              if insert_at < 0:
+                  raise SystemExit('No se encontró cabecera de Configuration.h')
+              s = s[:insert_at] + marker + '\n' + s[insert_at:]
+
+          s = s.replace('#define STRING_CONFIG_H_AUTHOR "(MoebyusMachines, default config)"',
+                        '#define STRING_CONFIG_H_AUTHOR "(SIRIUS 300x300 CUSTOM - odoslf)"')
+          s = s.replace('#define CUSTOM_MACHINE_NAME "[SIRIUS]"',
+                        '#define CUSTOM_MACHINE_NAME "[SIRIUS 300]"')
+
+          replacements = {
             '#define X_MIN_POS  -48':'#define X_MIN_POS  -48',
             '#define Y_MIN_POS  -12':'#define Y_MIN_POS  -12',
             '#define Z_MIN_POS  0':'#define Z_MIN_POS  0',
@@ -45,12 +70,60 @@ jobs:
             '#define Y_MAX_POS  205':'#define Y_MAX_POS  295',
             '#define Z_MAX_POS  275':'#define Z_MAX_POS  275',
           }
-          for old,new in replacements.items():
+          for old, new in replacements.items():
               if old not in s and new not in s:
                   raise SystemExit(f'No se encontró parámetro esperado: {old}')
-              s=s.replace(old,new)
+              s = s.replace(old, new)
+
           p.write_text(s)
           PY
+
+      - name: Verify critical Sirius configuration before compile
+        shell: bash
+        run: |
+          set -euxo pipefail
+          CFG=Marlin/Configuration.h
+          ADV=Marlin/Configuration_adv.h
+
+          grep -q 'CUSTOM VARIANT: MOEBYUS SIRIUS 300x300' "$CFG"
+          grep -q '^#define STRING_CONFIG_H_AUTHOR "(SIRIUS 300x300 CUSTOM - odoslf)"' "$CFG"
+          grep -q '^#define CUSTOM_MACHINE_NAME "\[SIRIUS 300\]"' "$CFG"
+          grep -q '^  #define MOTHERBOARD BOARD_RUMBA' "$CFG"
+          grep -q '^#define EXTRUDERS 2' "$CFG"
+
+          grep -q '^#define X_MIN_POS  -48' "$CFG"
+          grep -q '^#define Y_MIN_POS  -12' "$CFG"
+          grep -q '^#define Z_MIN_POS  0' "$CFG"
+          grep -q '^#define X_MAX_POS  295' "$CFG"
+          grep -q '^#define Y_MAX_POS  295' "$CFG"
+          grep -q '^#define Z_MAX_POS  275' "$CFG"
+
+          grep -q '^#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80.19, 80.19, 400, 96 }' "$CFG"
+          grep -q '^#define DEFAULT_MAX_FEEDRATE          { 250, 150, 15 , 80 }' "$CFG"
+          grep -q '^#define DEFAULT_MAX_ACCELERATION      { 2000, 900, 100, 10000 }' "$CFG"
+
+          grep -q '^#define TEMP_SENSOR_0 5' "$CFG"
+          grep -q '^#define TEMP_SENSOR_1 5' "$CFG"
+          grep -q '^#define TEMP_SENSOR_BED 1' "$CFG"
+          grep -q '^#define THERMAL_PROTECTION_HOTENDS' "$CFG"
+          grep -q '^#define THERMAL_PROTECTION_BED' "$CFG"
+
+          grep -q '^#define USE_XMIN_PLUG' "$CFG"
+          grep -q '^#define USE_YMIN_PLUG' "$CFG"
+          grep -q '^#define USE_ZMIN_PLUG' "$CFG"
+          grep -q '^#define USE_XMAX_PLUG' "$CFG"
+
+          grep -q '^#define DUAL_X_CARRIAGE' "$ADV"
+          grep -q '^  #define X2_MIN_POS 25' "$ADV"
+          grep -q '^  #define X2_MAX_POS 359' "$ADV"
+          grep -q '^  #define X2_HOME_DIR 1' "$ADV"
+          grep -q '^  #define DEFAULT_DUAL_X_CARRIAGE_MODE DXC_AUTO_PARK_MODE' "$ADV"
+          grep -q '^#define MICROSTEP_MODES {16,16,16,16,16}' "$ADV"
+
+          if grep -qE '^#define[[:space:]]+(X_DRIVER_TYPE|Y_DRIVER_TYPE|Z_DRIVER_TYPE|E0_DRIVER_TYPE|TMC_USE_SW_SPI|HAVE_TMC2209)' "$CFG" "$ADV"; then
+            echo 'Se detectó configuración TMC por firmware/UART inesperada.' >&2
+            exit 1
+          fi
 
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v2
@@ -68,34 +141,47 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          rm -rf build
           mkdir -p build
           arduino-cli compile --fqbn arduino:avr:mega:cpu=atmega2560 --output-dir build Marlin
           HEX=$(find build -maxdepth 1 -type f -name '*.hex' ! -name '*with_bootloader*' | head -n1)
           test -n "$HEX"
           cp "$HEX" SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+          test -s SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
 
-      - name: Verify configured limits
+      - name: Generate build information
         shell: bash
         run: |
-          grep -E '^#define (X|Y|Z)_(MIN|MAX)_POS' Marlin/Configuration.h
-          grep -q '^#define X_MAX_POS  295' Marlin/Configuration.h
-          grep -q '^#define Y_MAX_POS  295' Marlin/Configuration.h
-          grep -q '^#define Z_MAX_POS  275' Marlin/Configuration.h
+          set -euxo pipefail
+          SHA256=$(sha256sum SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex | awk '{print $1}')
+          cat > BUILD_INFO.txt <<EOF
+          Firmware: SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+          Variant: Moebyus Sirius 300x300 CUSTOM
+          Physical bed: 300x300 mm
+          Logical limits: X=-48..295, Y=-12..295, Z=0..275
+          Board: RUMBA / ATmega2560
+          Drivers: TMC2209 standalone STEP/DIR (Vref physical)
+          Source base: Moebyus/Firmwares SIRIUS11-Rumba-MK8-XYGT2-ZHusillo-lcdFull
+          SHA256: ${SHA256}
+          EOF
+          cat BUILD_INFO.txt
 
       - name: Upload HEX artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Sirius-300x300-HEX
-          path: SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+          name: Sirius-300x300-custom-HEX
+          path: |
+            SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+            BUILD_INFO.txt
 
-      - name: Commit imported source and compiled HEX
+      - name: Commit customized source and compiled HEX
         shell: bash
         run: |
           set -euxo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add Marlin CambiosPlantillaFirmware-original.txt SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
+          git add Marlin CambiosPlantillaFirmware-original.txt BUILD_INFO.txt SIRIUS11-RUMBA-TMC2209-300x300-295x295x275.hex
           if ! git diff --cached --quiet; then
-            git commit -m 'Importa y compila firmware Sirius 300x300 295x295x275'
+            git commit -m 'Actualiza firmware Sirius 300x300 custom verificado'
             git push
           fi
