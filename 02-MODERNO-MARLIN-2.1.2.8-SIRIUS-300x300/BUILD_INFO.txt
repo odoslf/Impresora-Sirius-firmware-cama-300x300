@@ -1,12 +1,21 @@
-SIRIUS 300x300 IDEX - MIGRACION MODERNA
-Marlin base: 2.1.2.8 estable
+SIRIUS 300x300 IDEX - MIGRACION MODERNA AUDITADA
+Marlin base: 2.1.2.8 estable / upstream 1cd56c4ccd483045eb5a92c99e3ad3b5ab1bea6d
 Placa: RUMBA / ATmega2560
 Cama física: 300x300 mm
 Área lógica: 295x295x275 mm
 IDEX: X1 MIN / X2 MAX / Auto Park
+X2: 25..359 mm
 Duplicación: M605 S2 / offset 150 mm
 Espejo: M605 S3 disponible
 Drivers: TMC2209_STANDALONE X/X2/Y/Z/E0/E1
-UART: NO; Vref: ajuste físico
+UART drivers: NO; Vref: ajuste físico
+Serie base: USB UART0 115200
+Wi-Fi en firmware base: NO
 Protección térmica hotends y cama: activa
-No flashear sin validar M119 y recorridos físicos
+Watchdog: activo
+Babystepping: activo (XY y doble clic Z)
+SD: CHECK_AND_RETRY / detección HIGH / no liberar steppers al terminar / sin G28XY automático al abortar
+Compilación auditada 2026-09-04: SUCCESS
+RAM: 4848/8192 bytes (59.2%)
+Flash: 146112/253952 bytes (57.5%)
+Validación física obligatoria: M119, sentidos, Y=295, X2=359, SD, jumpers 1/16 y Vref
