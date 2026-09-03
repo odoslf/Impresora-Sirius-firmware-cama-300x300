@@ -1,0 +1,113 @@
+name: Verificar Wi-Fi ESP3D Sirius UART3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ wifi-esp3d-uart3 ]
+    paths:
+      - '02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/**'
+      - 'WIFI-ESP3D.md'
+      - '.github/workflows/verificar-wifi-esp3d.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/**'
+      - 'WIFI-ESP3D.md'
+      - '.github/workflows/verificar-wifi-esp3d.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probar núcleo oficial Marlin 2.1.2.8 sin parches ocultos
+        shell: bash
+        run: |
+          set -euxo pipefail
+          MARLIN_COMMIT='1cd56c4ccd483045eb5a92c99e3ad3b5ab1bea6d'
+          git init /tmp/marlin-upstream
+          git -C /tmp/marlin-upstream remote add origin https://github.com/MarlinFirmware/Marlin.git
+          git -C /tmp/marlin-upstream fetch --depth 1 origin "$MARLIN_COMMIT"
+          git -C /tmp/marlin-upstream checkout --detach FETCH_HEAD
+          LOCAL='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8'
+          diff -qr --exclude='.git' --exclude='vscode' --exclude='Configuration.h' --exclude='Configuration_adv.h' "$LOCAL" /tmp/marlin-upstream
+
+      - name: Regenerar variante Wi-Fi desde Configuration upstream y exigir igualdad exacta
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300'
+          M="$ROOT/Marlin-2.1.2.8/Marlin"
+          cp "$M/Configuration.h" /tmp/Configuration.expected.h
+          cp "$M/Configuration_adv.h" /tmp/Configuration_adv.expected.h
+          cp /tmp/marlin-upstream/Marlin/Configuration.h "$M/Configuration.h"
+          cp /tmp/marlin-upstream/Marlin/Configuration_adv.h "$M/Configuration_adv.h"
+          python3 "$ROOT/activar_wifi_esp3d.py"
+          cmp "$M/Configuration.h" /tmp/Configuration.expected.h
+          cmp "$M/Configuration_adv.h" /tmp/Configuration_adv.expected.h
+          cp "$M/Configuration.h" /tmp/Configuration.once.h
+          cp "$M/Configuration_adv.h" /tmp/Configuration_adv.once.h
+          python3 "$ROOT/activar_wifi_esp3d.py"
+          cmp "$M/Configuration.h" /tmp/Configuration.once.h
+          cmp "$M/Configuration_adv.h" /tmp/Configuration_adv.once.h
+
+      - name: Verificar que Wi-Fi solo añade el host UART3 y conserva Sirius
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ROOT='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300'
+          C="$ROOT/Marlin-2.1.2.8/Marlin/Configuration.h"
+          A="$ROOT/Marlin-2.1.2.8/Marlin/Configuration_adv.h"
+          grep -q '^#define SERIAL_PORT 0' "$C"
+          grep -q '^#define BAUDRATE 115200' "$C"
+          grep -q '^#define SERIAL_PORT_2 3' "$C"
+          grep -q '^#define BAUDRATE_2 115200' "$C"
+          ! grep -Eq '^[[:space:]]*#define[[:space:]]+BLUETOOTH\b' "$C"
+          grep -q '^#define MOTHERBOARD BOARD_RUMBA' "$C"
+          for D in X Y Z X2 E0 E1; do grep -q "^#define ${D}_DRIVER_TYPE TMC2209_STANDALONE" "$C"; done
+          grep -q '^#define X_BED_SIZE 295' "$C"; grep -q '^#define Y_BED_SIZE 295' "$C"
+          grep -q '^#define X_MIN_POS -48' "$C"; grep -q '^#define Y_MIN_POS -12' "$C"
+          grep -q '^#define X_MAX_POS 295' "$C"; grep -q '^#define Y_MAX_POS 295' "$C"; grep -q '^#define Z_MAX_POS 275' "$C"
+          grep -q '^#define THERMAL_PROTECTION_HOTENDS' "$C"; grep -q '^#define THERMAL_PROTECTION_BED' "$C"
+          grep -q '^#define DUAL_X_CARRIAGE' "$A"; grep -q '^#define X2_MIN_POS 25' "$A"; grep -q '^#define X2_MAX_POS 359' "$A"
+          grep -q '^#define DEFAULT_DUAL_X_CARRIAGE_MODE DXC_AUTO_PARK_MODE' "$A"
+          grep -q '^#define DEFAULT_DUPLICATION_X_OFFSET 150' "$A"
+          grep -q '^#define SD_FINISHED_STEPPERRELEASE false' "$A"
+          ! grep -Eq '^[[:space:]]*#define[[:space:]]+EVENT_GCODE_SD_ABORT\b' "$A"
+
+      - name: Verificar RUMBA+ UART3 documentado
+        shell: bash
+        run: |
+          set -euxo pipefail
+          grep -q 'UART3' WIFI-ESP3D.md
+          grep -q 'PJ0' WIFI-ESP3D.md
+          grep -q 'PJ1' WIFI-ESP3D.md
+          grep -q 'SERIAL_PORT_2 3' WIFI-ESP3D.md
+          grep -q '115200' WIFI-ESP3D.md
+          grep -q '3.3 V' WIFI-ESP3D.md
+
+      - name: Instalar PlatformIO
+        run: python3 -m pip install platformio
+
+      - name: Compilar Marlin Wi-Fi para RUMBA / ATmega2560
+        working-directory: 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8
+        run: platformio run -e mega2560
+
+      - name: Verificar HEX Wi-Fi y checksum versionado
+        shell: bash
+        run: |
+          set -euxo pipefail
+          DIR='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300'
+          SRC="$DIR/Marlin-2.1.2.8/.pio/build/mega2560/firmware.hex"
+          VERSIONED="$DIR/firmware-wifi/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-ESP3D-UART3.hex"
+          test -s "$SRC"
+          test -s "$VERSIONED"
+          cmp "$SRC" "$VERSIONED"
+          (cd "$DIR/firmware-wifi" && sha256sum -c SHA256SUMS.txt)
+          cp "$SRC" /tmp/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-ESP3D-UART3.hex
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SIRIUS-WIFI-ESP3D-UART3
+          path: /tmp/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-ESP3D-UART3.hex
