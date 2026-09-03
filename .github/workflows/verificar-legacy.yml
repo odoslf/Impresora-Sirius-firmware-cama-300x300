@@ -7,47 +7,70 @@ on:
     paths:
       - '01-LEGACY-MARLIN-1.1.1-CAMA-300x300/**'
       - '.github/workflows/verificar-legacy.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '01-LEGACY-MARLIN-1.1.1-CAMA-300x300/**'
+      - '.github/workflows/verificar-legacy.yml'
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verificar configuración crítica legacy
+      - name: Probar procedencia exacta Moebyus
         shell: bash
         run: |
           set -euxo pipefail
-          ROOT='01-LEGACY-MARLIN-1.1.1-CAMA-300x300'
-          C="$ROOT/Marlin/Configuration.h"
-          A="$ROOT/Marlin/Configuration_adv.h"
-          grep -q 'SIRIUS 300x300 CUSTOM' "$C"
-          grep -q 'BOARD_RUMBA' "$C"
-          grep -q '^#define EXTRUDERS 2' "$C"
-          grep -q '^#define X_MIN_POS  -48' "$C"
-          grep -q '^#define Y_MIN_POS  -12' "$C"
-          grep -q '^#define Z_MIN_POS  0' "$C"
-          grep -q '^#define X_MAX_POS  295' "$C"
-          grep -q '^#define Y_MAX_POS  295' "$C"
-          grep -q '^#define Z_MAX_POS  275' "$C"
-          grep -q '^#define TEMP_SENSOR_0 5' "$C"
-          grep -q '^#define TEMP_SENSOR_1 5' "$C"
-          grep -q '^#define TEMP_SENSOR_BED 1' "$C"
-          grep -q '^#define THERMAL_PROTECTION_HOTENDS' "$C"
-          grep -q '^#define THERMAL_PROTECTION_BED' "$C"
-          grep -q '^#define DUAL_X_CARRIAGE' "$A"
-          grep -q 'X2_MIN_POS 25' "$A"
-          grep -q 'X2_MAX_POS 359' "$A"
-          grep -q 'X2_HOME_DIR 1' "$A"
-          grep -q 'DEFAULT_DUAL_X_CARRIAGE_MODE DXC_AUTO_PARK_MODE' "$A"
+          MOEBYUS_COMMIT='36a985e5aaa7ddff14b857c46ebdbf759720c2aa'
+          git init /tmp/moebyus
+          git -C /tmp/moebyus remote add origin https://github.com/Moebyus/Firmwares.git
+          git -C /tmp/moebyus fetch --depth 1 origin "$MOEBYUS_COMMIT"
+          git -C /tmp/moebyus checkout --detach FETCH_HEAD
+          LOCAL='01-LEGACY-MARLIN-1.1.1-CAMA-300x300/Marlin'
+          ORIG='/tmp/moebyus/SIRIUS11/SIRIUS11-Rumba-MK8-XYGT2-ZHusillo-lcdFull/Marlin'
+          diff -qr --exclude='Configuration.h' --exclude='Configuration.h.orig' "$LOCAL" "$ORIG"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          local=Path('01-LEGACY-MARLIN-1.1.1-CAMA-300x300/Marlin/Configuration.h').read_text(encoding='utf-8')
+          orig=Path('/tmp/moebyus/SIRIUS11/SIRIUS11-Rumba-MK8-XYGT2-ZHusillo-lcdFull/Marlin/Configuration.h').read_text(encoding='utf-8')
+          allowed={'STRING_CONFIG_H_AUTHOR','CUSTOM_MACHINE_NAME','Y_MAX_POS'}
+          def active(t):
+              out=[]
+              for line in t.splitlines():
+                  m=re.match(r'^\s*#define\s+([A-Za-z0-9_]+)(?:\s+(.*?))?\s*$',line)
+                  if m and m.group(1) not in allowed: out.append((m.group(1),(m.group(2) or '').strip()))
+              return out
+          if active(local)!=active(orig): raise SystemExit('LEGACY difiere de Moebyus fuera de los cambios autorizados')
+          expected={'STRING_CONFIG_H_AUTHOR':'"(SIRIUS 300x300 CUSTOM - odoslf)"','CUSTOM_MACHINE_NAME':'"[SIRIUS 300]"','Y_MAX_POS':'295'}
+          for n,v in expected.items():
+              m=re.search(rf'^\s*#define\s+{n}\s+(.+?)\s*(?://.*)?$',local,re.M)
+              if not m or m.group(1).strip()!=v: raise SystemExit(f'{n} incorrecto')
+          if not re.search(r'^\s*#define\s+Y_MAX_POS\s+205\b',orig,re.M): raise SystemExit('Referencia Moebyus Y_MAX_POS inesperada')
+          print('LEGACY OK: Moebyus original + identidad + Y_MAX_POS=295')
+          PY
+
+      - name: Verificar parámetros críticos
+        shell: bash
+        run: |
+          set -euxo pipefail
+          C='01-LEGACY-MARLIN-1.1.1-CAMA-300x300/Marlin/Configuration.h'
+          A='01-LEGACY-MARLIN-1.1.1-CAMA-300x300/Marlin/Configuration_adv.h'
+          grep -q 'BOARD_RUMBA' "$C"; grep -q '^#define EXTRUDERS 2' "$C"
+          grep -q '^#define X_MIN_POS  -48' "$C"; grep -q '^#define Y_MIN_POS  -12' "$C"; grep -q '^#define Z_MIN_POS  0' "$C"
+          grep -q '^#define X_MAX_POS  295' "$C"; grep -q '^#define Y_MAX_POS  295' "$C"; grep -q '^#define Z_MAX_POS  275' "$C"
+          grep -q '^#define DEFAULT_AXIS_STEPS_PER_UNIT   {80.19,80.19,400,96}' "$C"
+          grep -q '^#define TEMP_SENSOR_0 5' "$C"; grep -q '^#define TEMP_SENSOR_1 5' "$C"; grep -q '^#define TEMP_SENSOR_BED 1' "$C"
+          grep -q '^#define THERMAL_PROTECTION_HOTENDS' "$C"; grep -q '^#define THERMAL_PROTECTION_BED' "$C"
+          grep -q '^#define DUAL_X_CARRIAGE' "$A"; grep -q 'X2_MIN_POS 25' "$A"; grep -q 'X2_MAX_POS 359' "$A"; grep -q 'X2_HOME_DIR 1' "$A"
+          grep -q 'DEFAULT_DUAL_X_CARRIAGE_MODE DXC_AUTO_PARK_MODE' "$A"; grep -q 'DEFAULT_DUPLICATION_X_OFFSET 150' "$A"
           grep -q 'MICROSTEP_MODES {16,16,16,16,16}' "$A"
 
       - uses: arduino/setup-arduino-cli@v2
-
       - name: Instalar AVR y U8glib
-        shell: bash
         run: |
-          set -euxo pipefail
           arduino-cli config init --overwrite
           arduino-cli core update-index
           arduino-cli core install arduino:avr
@@ -57,9 +80,8 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          ROOT='01-LEGACY-MARLIN-1.1.1-CAMA-300x300'
           mkdir -p /tmp/sirius-legacy-build
-          arduino-cli compile --fqbn arduino:avr:mega:cpu=atmega2560 --output-dir /tmp/sirius-legacy-build "$ROOT/Marlin"
+          arduino-cli compile --fqbn arduino:avr:mega:cpu=atmega2560 --output-dir /tmp/sirius-legacy-build 01-LEGACY-MARLIN-1.1.1-CAMA-300x300/Marlin
           HEX=$(find /tmp/sirius-legacy-build -maxdepth 1 -type f -name '*.hex' ! -name '*with_bootloader*' | head -n1)
           test -s "$HEX"
           cp "$HEX" /tmp/SIRIUS-LEGACY-Marlin-1.1.1-300x300.hex
