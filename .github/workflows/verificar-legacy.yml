@@ -61,7 +61,7 @@ jobs:
           grep -q 'BOARD_RUMBA' "$C"; grep -q '^#define EXTRUDERS 2' "$C"
           grep -q '^#define X_MIN_POS  -48' "$C"; grep -q '^#define Y_MIN_POS  -12' "$C"; grep -q '^#define Z_MIN_POS  0' "$C"
           grep -q '^#define X_MAX_POS  295' "$C"; grep -q '^#define Y_MAX_POS  295' "$C"; grep -q '^#define Z_MAX_POS  275' "$C"
-          grep -q '^#define DEFAULT_AXIS_STEPS_PER_UNIT   {80.19,80.19,400,96}' "$C"
+          grep -Eq '^#define DEFAULT_AXIS_STEPS_PER_UNIT[[:space:]]+\{[[:space:]]*80\.19,[[:space:]]*80\.19,[[:space:]]*400,[[:space:]]*96[[:space:]]*\}' "$C"
           grep -q '^#define TEMP_SENSOR_0 5' "$C"; grep -q '^#define TEMP_SENSOR_1 5' "$C"; grep -q '^#define TEMP_SENSOR_BED 1' "$C"
           grep -q '^#define THERMAL_PROTECTION_HOTENDS' "$C"; grep -q '^#define THERMAL_PROTECTION_BED' "$C"
           grep -q '^#define DUAL_X_CARRIAGE' "$A"; grep -q 'X2_MIN_POS 25' "$A"; grep -q 'X2_MAX_POS 359' "$A"; grep -q 'X2_HOME_DIR 1' "$A"
