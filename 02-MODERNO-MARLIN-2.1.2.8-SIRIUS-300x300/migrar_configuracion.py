@@ -12,10 +12,10 @@ if not CFG.exists() or not ADV.exists():
 
 
 def set_define(text, name, value=None, required=True):
-    """Activa o sustituye un #define sin comerse la linea siguiente."""
+    """Activa o sustituye un #define sin consumir saltos de línea vecinos."""
     val = "" if value is None else f" {value}"
     pattern = re.compile(
-        rf"(?m)^\s*(?://\s*)?#define\s+{re.escape(name)}(?:[ \t]+[^\n]*)?$"
+        rf"(?m)^[ \t]*(?://[ \t]*)?#define[ \t]+{re.escape(name)}(?:[ \t]+[^\n]*)?$"
     )
     new, n = pattern.subn(f"#define {name}{val}", text, count=1)
     if n == 0:
@@ -26,11 +26,24 @@ def set_define(text, name, value=None, required=True):
 
 
 def comment_define(text, name, required=False):
-    pattern = re.compile(rf"(?m)^\s*#define\s+{re.escape(name)}(?:[ \t]+[^\n]*)?$")
+    """Comenta un #define activo sin alterar líneas adyacentes."""
+    pattern = re.compile(
+        rf"(?m)^[ \t]*#define[ \t]+{re.escape(name)}(?:[ \t]+[^\n]*)?$"
+    )
     new, n = pattern.subn(lambda m: "//" + m.group(0).lstrip(), text, count=1)
     if n == 0 and required:
         raise RuntimeError(f"No se encontro define activo {name}")
     return new
+
+
+# Autoprueba mínima: las expresiones regulares nunca deben tragarse una línea // vecina.
+_probe = "//\n//#define PRUEBA 1\n// siguiente\n"
+_probe = set_define(_probe, "PRUEBA", "2")
+if _probe != "//\n#define PRUEBA 2\n// siguiente\n":
+    raise SystemExit("FALLO INTERNO: set_define consume líneas vecinas")
+_probe = comment_define(_probe, "PRUEBA", required=True)
+if _probe != "//\n//#define PRUEBA 2\n// siguiente\n":
+    raise SystemExit("FALLO INTERNO: comment_define consume líneas vecinas")
 
 
 cfg = CFG.read_text(encoding="utf-8")
@@ -306,7 +319,7 @@ for path, needles in checks.items():
         if needle not in data:
             raise SystemExit(f"FALLO DE MIGRACION: falta {needle} en {path.name}")
 
-if re.search(r"(?m)^\s*#define\s+EVENT_GCODE_SD_ABORT\b", ADV.read_text(encoding="utf-8")):
+if re.search(r"(?m)^[ \t]*#define[ \t]+EVENT_GCODE_SD_ABORT\b", ADV.read_text(encoding="utf-8")):
     raise SystemExit("FALLO DE MIGRACION: EVENT_GCODE_SD_ABORT debe quedar desactivado")
 
 print("Migracion Sirius 300x300 aplicada y verificada correctamente")
