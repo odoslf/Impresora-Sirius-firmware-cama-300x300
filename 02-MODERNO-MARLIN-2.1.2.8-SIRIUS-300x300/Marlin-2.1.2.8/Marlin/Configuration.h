@@ -24,8 +24,8 @@
 /**
  * ============================================================================
  * VARIANTE PERSONALIZADA: MOEBYUS SIRIUS CAMA 300x300 / IDEX
- * Migración controlada desde SIRIUS11 Marlin 1.1.1 a Marlin 2.1.2.8 estable.
- * Área lógica: 295x295x275. TMC2209 standalone, sin UART.
+ * Migracion controlada desde SIRIUS11 Marlin 1.1.1 a Marlin 2.1.2.8 estable.
+ * Cama fisica 300x300; area logica 295x295x275. TMC2209 standalone, sin UART.
  * Repositorio: odoslf/Impresora-Sirius-firmware-cama-300x300
  * NO ES EL FIRMWARE ORIGINAL DE FABRICA.
  * ============================================================================
@@ -886,6 +886,7 @@
  * If you get "Thermal Runaway" or "Heating failed" errors the
  * details can be tuned in Configuration_adv.h
  */
+
 #define THERMAL_PROTECTION_HOTENDS
 #define THERMAL_PROTECTION_BED
 #define THERMAL_PROTECTION_CHAMBER // Enable thermal protection for the heated chamber
@@ -1271,6 +1272,7 @@
     #define MAX_JERK_EDIT_VALUES { 20, 20, 0.6, 10 } // ...or, set your own edit limits
   #endif
 #endif
+
 #define DEFAULT_EJERK 5.0
 
 /**
@@ -2509,7 +2511,7 @@
  *
  * Use CRC checks and retries on the SD communication.
  */
-//#define SD_CHECK_AND_RETRY
+#define SD_CHECK_AND_RETRY
 
 /**
  * LCD Menu Items
@@ -2526,13 +2528,13 @@
 // This option overrides the default number of encoder pulses needed to
 // produce one step. Should be increased for high-resolution encoders.
 //
-//#define ENCODER_PULSES_PER_STEP 4
+#define ENCODER_PULSES_PER_STEP 1
 
 //
 // Use this option to override the number of step signals required to
 // move between next/prev menu items.
 //
-//#define ENCODER_STEPS_PER_MENU_ITEM 1
+#define ENCODER_STEPS_PER_MENU_ITEM 5
 
 /**
  * Encoder Direction Options
@@ -2582,7 +2584,7 @@
 //
 // Add individual axis homing items (Home X, Home Y, and Home Z) to the LCD menu.
 //
-//#define INDIVIDUAL_AXIS_HOMING_MENU
+#define INDIVIDUAL_AXIS_HOMING_MENU
 //#define INDIVIDUAL_AXIS_HOMING_SUBMENU
 
 //
@@ -2591,7 +2593,7 @@
 // If you have a speaker that can produce tones, enable it here.
 // By default Marlin assumes you have a buzzer with a fixed frequency.
 //
-//#define SPEAKER
+#define SPEAKER
 
 //
 // The duration and frequency for the UI feedback sound.
