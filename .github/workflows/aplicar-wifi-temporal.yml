@@ -1,0 +1,61 @@
+name: Aplicar variante Wi-Fi temporal
+
+on:
+  push:
+    branches: [ wifi-esp3d-uart3 ]
+    paths:
+      - '.github/workflows/aplicar-wifi-temporal.yml'
+      - '02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/activar_wifi_esp3d.py'
+
+permissions:
+  contents: write
+
+jobs:
+  aplicar:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Aplicar configuración base + ESP3D UART3
+        run: python3 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/activar_wifi_esp3d.py
+
+      - name: Verificar diferencia Wi-Fi mínima
+        shell: bash
+        run: |
+          set -euxo pipefail
+          C='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8/Marlin/Configuration.h'
+          grep -q '^#define SERIAL_PORT 0' "$C"
+          grep -q '^#define BAUDRATE 115200' "$C"
+          grep -q '^#define SERIAL_PORT_2 3' "$C"
+          grep -q '^#define BAUDRATE_2 115200' "$C"
+          ! grep -Eq '^[[:space:]]*#define[[:space:]]+BLUETOOTH\b' "$C"
+
+      - name: Instalar PlatformIO y compilar
+        run: |
+          python3 -m pip install platformio
+          cd 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8
+          platformio run -e mega2560
+
+      - name: Guardar HEX Wi-Fi separado
+        shell: bash
+        run: |
+          set -euxo pipefail
+          DIR='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300'
+          mkdir -p "$DIR/firmware-wifi"
+          cp "$DIR/Marlin-2.1.2.8/.pio/build/mega2560/firmware.hex" "$DIR/firmware-wifi/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-ESP3D-UART3.hex"
+          (cd "$DIR/firmware-wifi" && sha256sum SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-ESP3D-UART3.hex > SHA256SUMS.txt)
+
+      - name: Commit variante generada
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8/Marlin/Configuration.h
+          git add 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/firmware-wifi/
+          if ! git diff --cached --quiet; then
+            git commit -m 'Genera firmware Sirius ESP3D sobre UART3'
+            git push origin HEAD:wifi-esp3d-uart3
+          fi
