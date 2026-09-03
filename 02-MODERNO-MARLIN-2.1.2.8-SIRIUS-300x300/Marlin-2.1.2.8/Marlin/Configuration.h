@@ -24,8 +24,8 @@
 /**
  * ============================================================================
  * VARIANTE PERSONALIZADA: MOEBYUS SIRIUS CAMA 300x300 / IDEX
- * Migración controlada desde SIRIUS11 Marlin 1.1.1 a Marlin 2.1.2.8 estable.
- * Área lógica: 295x295x275. TMC2209 standalone, sin UART.
+ * Migracion controlada desde SIRIUS11 Marlin 1.1.1 a Marlin 2.1.2.8 estable.
+ * Cama fisica 300x300; area logica 295x295x275. TMC2209 standalone, sin UART.
  * Repositorio: odoslf/Impresora-Sirius-firmware-cama-300x300
  * NO ES EL FIRMWARE ORIGINAL DE FABRICA.
  * ============================================================================
@@ -886,6 +886,7 @@
  * If you get "Thermal Runaway" or "Heating failed" errors the
  * details can be tuned in Configuration_adv.h
  */
+
 #define THERMAL_PROTECTION_HOTENDS
 #define THERMAL_PROTECTION_BED
 #define THERMAL_PROTECTION_CHAMBER // Enable thermal protection for the heated chamber
@@ -1271,6 +1272,7 @@
     #define MAX_JERK_EDIT_VALUES { 20, 20, 0.6, 10 } // ...or, set your own edit limits
   #endif
 #endif
+
 #define DEFAULT_EJERK 5.0
 
 /**
@@ -2772,6 +2774,7 @@
 //
 // RepRapDiscount FULL GRAPHIC Smart Controller
 // https://reprap.org/wiki/RepRapDiscount_Full_Graphic_Smart_Controller
+//
 #define REPRAP_DISCOUNT_FULL_GRAPHIC_SMART_CONTROLLER
 
 //

@@ -24,8 +24,8 @@
 /**
  * ============================================================================
  * VARIANTE PERSONALIZADA: MOEBYUS SIRIUS CAMA 300x300 / IDEX
- * Migración controlada desde SIRIUS11 Marlin 1.1.1 a Marlin 2.1.2.8 estable.
- * Área lógica: 295x295x275. TMC2209 standalone, sin UART.
+ * Migracion controlada desde SIRIUS11 Marlin 1.1.1 a Marlin 2.1.2.8 estable.
+ * Cama fisica 300x300; area logica 295x295x275. TMC2209 standalone, sin UART.
  * Repositorio: odoslf/Impresora-Sirius-firmware-cama-300x300
  * NO ES EL FIRMWARE ORIGINAL DE FABRICA.
  * ============================================================================
@@ -655,6 +655,7 @@
 #define E7_AUTO_FAN_PIN -1
 #define CHAMBER_AUTO_FAN_PIN -1
 #define COOLER_AUTO_FAN_PIN -1
+
 #define EXTRUDER_AUTO_FAN_TEMPERATURE 50
 #define EXTRUDER_AUTO_FAN_SPEED 255
 #define CHAMBER_AUTO_FAN_TEMPERATURE 30
@@ -887,11 +888,13 @@
  */
 
 //#define SENSORLESS_BACKOFF_MM  { 2, 2, 0 }  // (linear=mm, rotational=°) Backoff from endstops before sensorless homing
+
 #define HOMING_BUMP_MM { 3, 3, 2 }
 #define HOMING_BUMP_DIVISOR { 4, 4, 2 }
 
 //#define HOMING_BACKOFF_POST_MM { 2, 2, 2 }  // (linear=mm, rotational=°) Backoff from endstops after homing
 //#define XY_COUNTERPART_BACKOFF_MM 0         // (mm) Backoff X after homing Y, and vice-versa
+
 #define QUICK_HOME
 //#define HOME_Y_BEFORE_X                     // If G28 contains XY home Y before X
 //#define HOME_Z_FIRST                        // Home Z first. Requires a real endstop (not a probe).
@@ -1547,6 +1550,7 @@
   //#define GCODE_REPEAT_MARKERS            // Enable G-code M808 to set repeat markers and do looping
 
   #define SD_PROCEDURE_DEPTH 1              // Increase if you need more nested M32 calls
+
 #define SD_FINISHED_STEPPERRELEASE false
   #define SD_FINISHED_RELEASECOMMAND "M84"  // Use "M84XYE" to keep Z enabled so your bed stays in place
 
@@ -1562,6 +1566,7 @@
   //#define BROWSE_MEDIA_ON_INSERT          // Open the file browser when media is inserted
 
   //#define MEDIA_MENU_AT_TOP               // Force the media menu to be listed on the top of the main menu
+
 //#define EVENT_GCODE_SD_ABORT "G28XY"      // G-code to run on SD Abort Print (e.g., "G28XY" or "G27")
 
   #if ENABLED(PRINTER_EVENT_LEDS)
@@ -2079,6 +2084,7 @@
   //#define BABYSTEP_MILLIMETER_UNITS       // Specify BABYSTEP_MULTIPLICATOR_(XY|Z) in mm instead of micro-steps
 #define BABYSTEP_MULTIPLICATOR_Z 1
 #define BABYSTEP_MULTIPLICATOR_XY 1
+
 #define DOUBLECLICK_FOR_Z_BABYSTEPPING
   #if ENABLED(DOUBLECLICK_FOR_Z_BABYSTEPPING)
 #define DOUBLECLICK_MAX_INTERVAL 1250
@@ -2291,6 +2297,7 @@
 
 //
 // G2/G3 Arc Support
+//
 #define ARC_SUPPORT
 #if ENABLED(ARC_SUPPORT)
   #define MIN_ARC_SEGMENT_MM      0.1 // (mm) Minimum length of each arc segment
