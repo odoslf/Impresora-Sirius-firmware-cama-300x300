@@ -31,13 +31,25 @@ jobs:
           LOCAL='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8'
           diff -qr --exclude='.git' --exclude='vscode' --exclude='Configuration.h' --exclude='Configuration_adv.h' "$LOCAL" /tmp/marlin-upstream
 
-      - name: Probar que la migración es reproducible e idempotente
+      - name: Regenerar desde Configuration upstream y exigir igualdad exacta
         shell: bash
         run: |
           set -euxo pipefail
           ROOT='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300'
+          M="$ROOT/Marlin-2.1.2.8/Marlin"
+          cp "$M/Configuration.h" /tmp/Configuration.expected.h
+          cp "$M/Configuration_adv.h" /tmp/Configuration_adv.expected.h
+          cp /tmp/marlin-upstream/Marlin/Configuration.h "$M/Configuration.h"
+          cp /tmp/marlin-upstream/Marlin/Configuration_adv.h "$M/Configuration_adv.h"
           python3 "$ROOT/migrar_configuracion.py"
-          git diff --exit-code -- "$ROOT/Marlin-2.1.2.8/Marlin/Configuration.h" "$ROOT/Marlin-2.1.2.8/Marlin/Configuration_adv.h"
+          cmp "$M/Configuration.h" /tmp/Configuration.expected.h
+          cmp "$M/Configuration_adv.h" /tmp/Configuration_adv.expected.h
+          # Segunda ejecución: también debe ser exactamente idempotente.
+          cp "$M/Configuration.h" /tmp/Configuration.once.h
+          cp "$M/Configuration_adv.h" /tmp/Configuration_adv.once.h
+          python3 "$ROOT/migrar_configuracion.py"
+          cmp "$M/Configuration.h" /tmp/Configuration.once.h
+          cmp "$M/Configuration_adv.h" /tmp/Configuration_adv.once.h
 
       - name: Verificar configuración Sirius completa
         shell: bash
@@ -48,7 +60,7 @@ jobs:
           A="$ROOT/Marlin-2.1.2.8/Marlin/Configuration_adv.h"
           grep -q 'VARIANTE PERSONALIZADA: MOEBYUS SIRIUS CAMA 300x300 / IDEX' "$C"
           grep -q '^#define MOTHERBOARD BOARD_RUMBA' "$C"; grep -q '^#define SERIAL_PORT 0' "$C"; grep -q '^#define BAUDRATE 115200' "$C"
-          ! grep -Eq '^\s*#define\s+SERIAL_PORT_2\b' "$C"
+          ! grep -Eq '^[[:space:]]*#define[[:space:]]+SERIAL_PORT_2\b' "$C"
           grep -q '^#define EXTRUDERS 2' "$C"
           for D in X Y Z X2 E0 E1; do grep -q "^#define ${D}_DRIVER_TYPE TMC2209_STANDALONE" "$C"; done
           grep -q '^#define X_BED_SIZE 295' "$C"; grep -q '^#define Y_BED_SIZE 295' "$C"
@@ -75,7 +87,7 @@ jobs:
           grep -q '^#define ENCODER_10X_STEPS_PER_SEC 75' "$A"; grep -q '^#define ENCODER_100X_STEPS_PER_SEC 160' "$A"
           grep -q '^#define LCD_INFO_MENU' "$A"; grep -q '^#define LCD_DECIMAL_SMALL_XY' "$A"; grep -q '^#define USE_BIG_EDIT_FONT' "$A"
           grep -q '^#define SD_DETECT_STATE HIGH' "$A"; grep -q '^#define SD_FINISHED_STEPPERRELEASE false' "$A"
-          ! grep -Eq '^\s*#define\s+EVENT_GCODE_SD_ABORT\b' "$A"
+          ! grep -Eq '^[[:space:]]*#define[[:space:]]+EVENT_GCODE_SD_ABORT\b' "$A"
 
       - name: Verificar mapa de pines RUMBA crítico
         shell: bash
