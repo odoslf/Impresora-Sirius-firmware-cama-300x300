@@ -18,6 +18,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      # GCC usa SOURCE_DATE_EPOCH para hacer deterministas __DATE__/__TIME__.
+      SOURCE_DATE_EPOCH: '0'
+      TZ: UTC
     steps:
       - uses: actions/checkout@v4
 
@@ -90,11 +94,11 @@ jobs:
       - name: Instalar PlatformIO
         run: python3 -m pip install platformio
 
-      - name: Compilar Marlin Wi-Fi para RUMBA / ATmega2560
+      - name: Compilar Marlin Wi-Fi reproducible para RUMBA / ATmega2560
         working-directory: 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8
         run: platformio run -e mega2560
 
-      - name: Verificar HEX Wi-Fi y checksum versionado
+      - name: Verificar HEX Wi-Fi reproducible y checksum versionado
         shell: bash
         run: |
           set -euxo pipefail
