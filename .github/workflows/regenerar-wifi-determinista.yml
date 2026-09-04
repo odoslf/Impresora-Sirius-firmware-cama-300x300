@@ -1,0 +1,46 @@
+name: Regenerar HEX Wi-Fi determinista
+
+on:
+  push:
+    branches: [ wifi-esp3d-uart3 ]
+    paths:
+      - '.github/workflows/regenerar-wifi-determinista.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  regenerar:
+    runs-on: ubuntu-24.04
+    env:
+      SOURCE_DATE_EPOCH: '0'
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Regenerar configuración Wi-Fi canónica
+        run: python3 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/activar_wifi_esp3d.py
+      - name: Compilar determinista
+        run: |
+          python3 -m pip install platformio
+          cd 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/Marlin-2.1.2.8
+          platformio run -e mega2560
+      - name: Reemplazar HEX Wi-Fi y checksum
+        shell: bash
+        run: |
+          set -euxo pipefail
+          DIR='02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300'
+          cp "$DIR/Marlin-2.1.2.8/.pio/build/mega2560/firmware.hex" "$DIR/firmware-wifi/SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-ESP3D-UART3.hex"
+          (cd "$DIR/firmware-wifi" && sha256sum SIRIUS-300x300-IDEX-Marlin-2.1.2.8-RUMBA-TMC2209-ESP3D-UART3.hex > SHA256SUMS.txt)
+      - name: Commit HEX determinista
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add 02-MODERNO-MARLIN-2.1.2.8-SIRIUS-300x300/firmware-wifi/
+          if ! git diff --cached --quiet; then
+            git commit -m 'Regenera HEX Wi-Fi con fecha de compilación determinista'
+            git push origin HEAD:wifi-esp3d-uart3
+          fi
